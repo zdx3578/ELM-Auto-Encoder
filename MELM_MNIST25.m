@@ -39,18 +39,31 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
 
 
     %%%%%%%%%%% Load training dataset
-    P = loadMNISTImages('mnist/train-images-idx3-ubyte');
+    loadtime=tic;
+    %disp(clock);
+    %P = loadMNISTImages('mnist/train-images-idx3-ubyte');
     T = loadMNISTLabels('mnist/train-labels-idx1-ubyte');
+    %disp('T size is :'); disp( size(T) );
     T = T';
 
+    %disp()
+    %disp('T size is :'); disp(size(T,2 ) );
+
+    P = loadMNISTImages('mnist/train-images-idx3-ubyte');
+    %disp('p shape is :') ; disp(size(P));
+    %disp('load time :'); disp(toc(loadtime));
+	fprintf(1,' load time  %f  \n', toc(loadtime)   );
 
     if TrainDataSize ~= 0
         rand_sequence=randperm(TrainDataSize);
+	disp('rand_seq');disp(rand_sequence);
         temp_P=P';
         temp_T=T';
         clear P;
         clear T;
         P=temp_P(rand_sequence, :)';
+	disp('p shape is :') ; disp(size(P));
+
         T=temp_T(rand_sequence, :)';
         clear temp_P;
         clear temp_T;
@@ -70,15 +83,25 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
 
     %%%%%%%%%%%% Preprocessing the data of classification
     sorted_target=sort(cat(2,T,TV.T),2);
+	    %disp('sorted_target'); disp(size(sorted_target));
+
     label=zeros(1,1);                               %   Find and save in 'label' class label from training and testing data sets
     label(1,1)=sorted_target(1,1);
-    j=1;
+	    %disp('st15');disp(sorted_target(1,15));
+    j=1;z=1;
     for i = 2:(NumberofTrainingData+NumberofTestingData)
         if sorted_target(1,i) ~= label(1,j)
+		    %disp('in for disp sorttarg and label'); disp(sorted_target(1,i));disp(label);
             j=j+1;
             label(1,j) = sorted_target(1,i);
+        	    %disp('z ');disp(z);
+		    %disp(label)
         end
+	z=z+1;
     end
+	    %disp('z ');disp(z);
+	    %disp('label');disp(size(label));
+	    %disp('j ');disp(j);
     number_class=j;
     NumberofOutputNeurons=number_class;
 
@@ -114,26 +137,31 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
     stack = cell(no_Layers+1,1);
     
     lenHN = length(HiddernNeurons);
+	%disp('lenHN'); disp(lenHN);
     lenC1 = length(C1);
     lensig = length(sigpara);
     lensig1 = length(sigpara1);
     HN_temp = [NumberofInputNeurons,HiddernNeurons(1:lenHN-1)];
+	%disp('HiddernNeurons(1:lenHN-1)'); disp( HiddernNeurons(1:lenHN-1) );
+	%disp(' HN tmp, '); disp(HN_temp);
     if length(HN_temp) < no_Layers
         HN = [ HN_temp, repmat( HN_temp( length( HN_temp ) ),1,no_Layers-length(HN_temp) ), HiddernNeurons(lenHN) ];
         C = [C1(1:lenC1-2), zeros(1,no_Layers - length(HN_temp)  ), C1(lenC1-1:lenC1) ];
 %         sigscale = [sigpara(1:lensig-1),repmat(sigpara(lensig-1),1,no_Layers - length(HN_temp)),sigpara(lensig)];
         sigscale = [sigpara(1:lensig-1),ones(1,no_Layers - length(HN_temp)),sigpara(lensig)];
         sigscale1 = [sigpara1(1:lensig1-1),ones(1,no_Layers - length(HN_temp)),sigpara1(lensig1)];
+		%disp(' HN'); disp(HN);
     else
         HN = [NumberofInputNeurons,HiddernNeurons];
+		disp('sizeHN'); disp(size(HN));
         C = C1;
         sigscale = sigpara;
         sigscale1 = sigpara1;
     end
     clear HN_temp;
     
-    InputDataLayer = zscore(P);
-%     InputDataLayer = P;
+%    InputDataLayer = zscore(P);
+    InputDataLayer = P;
     clear P;
     
 %     s=rng;
@@ -154,6 +182,9 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
 %         prevColWeight = HN(i);
 %         rng(randomWeightRng);
         InputWeight=rand(HN(i+1),HN(i))*2 -1;
+	%disp('size input weight'); disp(size(InputWeight));
+	fprintf(1,'size of inputweight: %d, %d %d ;  \n',i, size(InputWeight)  );
+	
         if HN(i+1) > HN(i)
             InputWeight = orth(InputWeight);
         else
@@ -171,7 +202,7 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
 
         clear BiasMatrix;
         clear BiasofHiddenNeurons;
-        fprintf(1,'AutoEncorder Max Val %f Min Val %f\n',max(tempH(:)),min(tempH(:)));
+        fprintf(1,'\n AutoEncorder Max Val %f Min Val %f\n',max(tempH(:)),min(tempH(:)));
         H = 1 ./ (1 + exp(-sigscale1(i)*tempH));
         clear tempH;                                        %   Release the temparary array for calculation of hidden neuron output matrix H
 
@@ -194,14 +225,17 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
             clear HsquareL;
         end
     end
+	fprintf(1,'\n size of stack i w : %d, %d,  %d;  \n',i, size(stack{i}.w)  );
+    
 
     tempH=(stack{i}.w) *(InputDataLayer);
     clear InputDataLayer;
+	fprintf(1,'\n size of i and  tempH:  %d, %d,  %d;  \n',i, size(tempH)  );
 
     if HN(i+1) == HN(i)
         InputDataLayer = tempH;
     else
-        fprintf(1,'Layered Max Val %f Min Val %f\n',max(tempH(:)),min(tempH(:)));
+        fprintf(1,'\n Layered Max Val %f Min Val %f\n',max(tempH(:)),min(tempH(:)));
         InputDataLayer =  1 ./ (1 + exp(-sigscale(i)*tempH));
     end
 
@@ -229,8 +263,8 @@ function [TrainingTime, TestingTime, TrainingAccuracy, TestingAccuracy] = MELM_M
     TV.P = loadMNISTImages('mnist/t10k-images-idx3-ubyte');
     %%%%%%%%%%% Calculate the output of testing input
     test_time=tic;
-    InputDataLayer = zscore(TV.P);
-%     InputDataLayer = TV.P;
+%    InputDataLayer = zscore(TV.P);
+     InputDataLayer = TV.P;
     clear TV.P;
     
     for i=1:1:no_Layers   
